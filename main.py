@@ -50,25 +50,24 @@ df = pd.DataFrame(rows)
 st.sidebar.header("Filters")
 techniques = st.sidebar.multiselect(
     "Navigation Technique", df['Technique'].unique(), default=df['Technique'].unique()
-) if not df.empty else []
+)
 questions = st.sidebar.multiselect(
     "Questions", df['Question'].unique(), default=df['Question'].unique()
-) if not df.empty else []
+)
 expected_filter = st.sidebar.selectbox(
     "Show", ["All", "Expected", "Unexpected"]
 )
 
 # Apply filters
 df_filtered = df.copy()
-if not df.empty:
-    if techniques:
-        df_filtered = df_filtered[df_filtered['Technique'].isin(techniques)]
-    if questions:
-        df_filtered = df_filtered[df_filtered['Question'].isin(questions)]
-    if expected_filter == "Expected":
-        df_filtered = df_filtered[df_filtered['Expected']]
-    elif expected_filter == "Unexpected":
-        df_filtered = df_filtered[~df_filtered['Expected']]
+if techniques:
+    df_filtered = df_filtered[df_filtered['Technique'].isin(techniques)]
+if questions:
+    df_filtered = df_filtered[df_filtered['Question'].isin(questions)]
+if expected_filter == "Expected":
+    df_filtered = df_filtered[df_filtered['Expected']]
+elif expected_filter == "Unexpected":
+    df_filtered = df_filtered[~df_filtered['Expected']]
 
 # Main dashboard
 st.title("Benchmark Dashboard")
@@ -80,67 +79,77 @@ else:
     st.subheader("Raw Data")
     st.dataframe(df_filtered)
 
-    # Bar Chart: Response Time & Tokens per Question and Run
-    st.subheader("Bar Chart: Response Time & Tokens per Question and Run")
-    fig1 = px.bar(
-        df_filtered,
-        x="Question",
-        y="Time_ms",
-        color="Expected",
-        barmode="group",
-        hover_data=["Technique", "Run", "TableID", "PromptTokens", "CompletionTokens", "TotalTokens"],
-        labels={"Expected": "Correct?", "Time_ms": "Response Time (ms)"}
-    )
-    fig1.update_traces(hovertemplate=
-        'Question: %{x}<br>' +
-        'Time: %{y} ms<br>' +
-        'Prompt Tokens: %{customdata[3]}<br>' +
-        'Completion Tokens: %{customdata[4]}<br>' +
-        'Total Tokens: %{customdata[5]}'
-    )
-    st.plotly_chart(fig1, use_container_width=True)
-
-    # Comparison: Folder vs Keyword Search per Run with Token Usage
-    st.subheader("Comparison: Folder vs Keyword Search per Run with Token Usage")
+    # Per-Question Detailed View: Time & Token Usage Side by Side
+    st.subheader("Detailed View by Question")
     for question in df_filtered['Question'].unique():
+        st.markdown(f"### {question}")
         df_q = df_filtered[df_filtered['Question'] == question]
-        fig_cmp = go.Figure()
-        tech_colors = {
-            'folderNavigation': 'rgba(0, 123, 255, 0.7)',
-            'keywordSearch': 'rgba(0, 82, 204, 0.7)'
-        }
-        for tech in df_q['Technique'].unique():
-            df_t = df_q[df_q['Technique'] == tech].sort_values('Run')
-            outline_colors = df_t['Expected'].map({True: 'green', False: 'red'}).tolist()
-            fig_cmp.add_trace(go.Bar(
-                x=df_t['Run'],
-                y=df_t['Time_ms'],
-                name=tech,
-                marker=dict(
-                    color=tech_colors.get(tech, 'grey'),
-                    line=dict(color=outline_colors, width=3)
-                ),
-                offsetgroup=tech,
-                customdata=df_t[['TableID', 'PromptTokens', 'CompletionTokens', 'TotalTokens', 'Expected']].values,
-                hovertemplate=
-                    'Run: %{x}<br>' +
-                    'Time: %{y} ms<br>' +
-                    'TableID: %{customdata[0]}<br>' +
-                    'Prompt Tokens: %{customdata[1]}<br>' +
-                    'Completion Tokens: %{customdata[2]}<br>' +
-                    'Total Tokens: %{customdata[3]}<br>' +
-                    'Expected: %{customdata[4]}'
-            ))
-        # Legend items for correctness
-        fig_cmp.add_trace(go.Bar(x=[None], y=[None], name='Correct', marker=dict(color='green'), showlegend=True))
-        fig_cmp.add_trace(go.Bar(x=[None], y=[None], name='Incorrect', marker=dict(color='red'), showlegend=True))
-        fig_cmp.update_layout(
-            title=question,
-            xaxis_title="Run Index",
-            yaxis_title="Response Time (ms)",
-            barmode='group',
-            legend_title="Legend"
-        )
-        st.plotly_chart(fig_cmp, use_container_width=True)
+        col_time, col_tokens = st.columns(2)
+
+        # Time Usage Chart
+        with col_time:
+            st.write("**Response Time (ms)**")
+            fig_time = go.Figure()
+            tech_colors = {
+                'folderNavigation': 'rgba(0, 123, 255, 0.7)',
+                'keywordSearch': 'rgba(0, 82, 204, 0.7)'
+            }
+            for tech in df_q['Technique'].unique():
+                df_t = df_q[df_q['Technique'] == tech].sort_values('Run')
+                outline_colors = df_t['Expected'].map({True: 'green', False: 'red'}).tolist()
+                fig_time.add_trace(go.Bar(
+                    x=df_t['Run'],
+                    y=df_t['Time_ms'],
+                    name=tech,
+                    marker=dict(
+                        color=tech_colors.get(tech, 'grey'),
+                        line=dict(color=outline_colors, width=3)
+                    ),
+                    offsetgroup=tech
+                ))
+            fig_time.update_layout(
+                xaxis_title="Run Index",
+                yaxis_title="Time (ms)",
+                barmode='group',
+                showlegend=False
+            )
+            st.plotly_chart(fig_time, use_container_width=True, key=f"time_{question}")
+
+        # Token Usage Chart
+        with col_tokens:
+            st.write("**Total Tokens Used**")
+            fig_tokens = go.Figure()
+            for tech in df_q['Technique'].unique():
+                df_t = df_q[df_q['Technique'] == tech].sort_values('Run')
+                outline_colors = df_t['Expected'].map({True: 'green', False: 'red'}).tolist()
+                fig_tokens.add_trace(go.Bar(
+                    x=df_t['Run'],
+                    y=df_t['TotalTokens'],
+                    name=tech,
+                    marker=dict(
+                        color=tech_colors.get(tech, 'grey'),
+                        line=dict(color=outline_colors, width=3)
+                    ),
+                    offsetgroup=tech
+                ))
+            fig_tokens.update_layout(
+                xaxis_title="Run Index",
+                yaxis_title="Total Tokens",
+                barmode='group',
+                showlegend=False
+            )
+            st.plotly_chart(fig_tokens, use_container_width=True, key=f"tokens_{question}")
+
+    # Histogram: Response Time Distribution
+    st.subheader("Histogram: Response Time Distribution")
+    fig3 = px.histogram(
+        df_filtered,
+        x="Time_ms",
+        color="Technique",
+        marginal="box",
+        nbins=20,
+        labels={"Time_ms": "Response Time (ms)"}
+    )
+    st.plotly_chart(fig3, use_container_width=True, key="histogram")
 
 
