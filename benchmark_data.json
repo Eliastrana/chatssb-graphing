@@ -1,0 +1,864 @@
+{
+  "configurations": [
+    {
+      "navigationConfiguration": {
+        "model": "gpt-4o-mini",
+        "navigationTechnique": "folderNavigation",
+        "navigationValue": 3,
+        "reasoning": false
+      },
+      "benchmarkAnswers": [
+        {
+          "userPrompt": "Hva var befolkningstallet i Norge i 2022?",
+          "responses": [
+            {
+              "tableId": "06913",
+              "milliseconds": 7953,
+              "tokenUsage": {
+                "completionTokens": 1157,
+                "promptTokens": 18845,
+                "totalTokens": 20002
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 5848,
+              "tokenUsage": {
+                "completionTokens": 998,
+                "promptTokens": 19698,
+                "totalTokens": 20696
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 6362,
+              "tokenUsage": {
+                "completionTokens": 1177,
+                "promptTokens": 18919,
+                "totalTokens": 20096
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 6126,
+              "tokenUsage": {
+                "completionTokens": 1176,
+                "promptTokens": 18084,
+                "totalTokens": 19260
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hvor mange heter Trygve til fornavn i dag?",
+          "responses": [
+            {
+              "tableId": "error",
+              "milliseconds": 3149,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "navn",
+              "milliseconds": 2243,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "error",
+              "milliseconds": 2951,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "error",
+              "milliseconds": 4216,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hva var Norges BNP fra 2010-2020?",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 7128,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6355,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6064,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 5646,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Gi meg antall pasienter på sykehus i 2023",
+          "responses": [
+            {
+              "tableId": "10261",
+              "milliseconds": 7565,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 5418,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 7116,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 8550,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Vis meg utviklingen i elektrisitetspriser for husholdningene fra 2015-2020",
+          "responses": [
+            {
+              "tableId": "09007",
+              "milliseconds": 7005,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09007",
+              "milliseconds": 6554,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09007",
+              "milliseconds": 7131,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09007",
+              "milliseconds": 7286,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "navigationConfiguration": {
+        "model": "gpt-4o-mini",
+        "navigationTechnique": "folderNavigation",
+        "navigationValue": 3,
+        "reasoning": true
+      },
+      "benchmarkAnswers": [
+        {
+          "userPrompt": "Hva var befolkningstallet i Norge i 2022?",
+          "responses": [
+            {
+              "tableId": "06913",
+              "milliseconds": 5731,
+              "tokenUsage": {
+                "completionTokens": 1305,
+                "promptTokens": 26229,
+                "totalTokens": 27534
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 5927,
+              "tokenUsage": {
+                "completionTokens": 1280,
+                "promptTokens": 25975,
+                "totalTokens": 27255
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 6371,
+              "tokenUsage": {
+                "completionTokens": 1068,
+                "promptTokens": 23613,
+                "totalTokens": 24681
+              }
+            },
+            {
+              "tableId": "06913",
+              "milliseconds": 5522,
+              "tokenUsage": {
+                "completionTokens": 1117,
+                "promptTokens": 23818,
+                "totalTokens": 24935
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hvor mange heter Trygve til fornavn i dag?",
+          "responses": [
+            {
+              "tableId": "error",
+              "milliseconds": 2767,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "error",
+              "milliseconds": 3791,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "error",
+              "milliseconds": 3613,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "error",
+              "milliseconds": 3141,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hva var Norges BNP fra 2010-2020?",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 11042,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 9423,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6688,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6789,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Gi meg antall pasienter på sykehus i 2023",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 6610,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6752,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 7940,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6293,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Vis meg utviklingen i elektrisitetspriser for husholdningene fra 2015-2020",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 6893,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6666,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 6733,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 8654,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "navigationConfiguration": {
+        "model": "gpt-4o-mini",
+        "navigationTechnique": "keywordSearch",
+        "navigationValue": 3,
+        "reasoning": false
+      },
+      "benchmarkAnswers": [
+        {
+          "userPrompt": "Hva var befolkningstallet i Norge i 2022?",
+          "responses": [
+            {
+              "tableId": "05212",
+              "milliseconds": 1528,
+              "tokenUsage": {
+                "completionTokens": 98,
+                "promptTokens": 19879,
+                "totalTokens": 19977
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1210,
+              "tokenUsage": {
+                "completionTokens": 98,
+                "promptTokens": 19879,
+                "totalTokens": 19977
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1422,
+              "tokenUsage": {
+                "completionTokens": 98,
+                "promptTokens": 19879,
+                "totalTokens": 19977
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1956,
+              "tokenUsage": {
+                "completionTokens": 98,
+                "promptTokens": 19879,
+                "totalTokens": 19977
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hvor mange heter Trygve til fornavn i dag?",
+          "responses": [
+            {
+              "tableId": "10467",
+              "milliseconds": 1520,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 1121,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 1719,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 1729,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hva var Norges BNP fra 2010-2020?",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 1452,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1336,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1344,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1579,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Gi meg antall pasienter på sykehus i 2023",
+          "responses": [
+            {
+              "tableId": "10261",
+              "milliseconds": 1601,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 1310,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 1332,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10261",
+              "milliseconds": 1531,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Vis meg utviklingen i elektrisitetspriser for husholdningene fra 2015-2020",
+          "responses": [
+            {
+              "tableId": "09367",
+              "milliseconds": 1500,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09367",
+              "milliseconds": 1385,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09367",
+              "milliseconds": 1161,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09367",
+              "milliseconds": 1476,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "navigationConfiguration": {
+        "model": "gpt-4o-mini",
+        "navigationTechnique": "keywordSearch",
+        "navigationValue": 3,
+        "reasoning": true
+      },
+      "benchmarkAnswers": [
+        {
+          "userPrompt": "Hva var befolkningstallet i Norge i 2022?",
+          "responses": [
+            {
+              "tableId": "05212",
+              "milliseconds": 1373,
+              "tokenUsage": {
+                "completionTokens": 101,
+                "promptTokens": 19720,
+                "totalTokens": 19821
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1282,
+              "tokenUsage": {
+                "completionTokens": 101,
+                "promptTokens": 19720,
+                "totalTokens": 19821
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1496,
+              "tokenUsage": {
+                "completionTokens": 101,
+                "promptTokens": 19720,
+                "totalTokens": 19821
+              }
+            },
+            {
+              "tableId": "05212",
+              "milliseconds": 1435,
+              "tokenUsage": {
+                "completionTokens": 101,
+                "promptTokens": 19720,
+                "totalTokens": 19821
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hvor mange heter Trygve til fornavn i dag?",
+          "responses": [
+            {
+              "tableId": "10467",
+              "milliseconds": 1578,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 2050,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 1303,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "10467",
+              "milliseconds": 1125,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Hva var Norges BNP fra 2010-2020?",
+          "responses": [
+            {
+              "tableId": "09189",
+              "milliseconds": 5929,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1438,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1638,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1421,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Gi meg antall pasienter på sykehus i 2023",
+          "responses": [
+            {
+              "tableId": "12880",
+              "milliseconds": 1432,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "12880",
+              "milliseconds": 1346,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "12880",
+              "milliseconds": 1219,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "12880",
+              "milliseconds": 3384,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        },
+        {
+          "userPrompt": "Vis meg utviklingen i elektrisitetspriser for husholdningene fra 2015-2020",
+          "responses": [
+            {
+              "tableId": "12880",
+              "milliseconds": 1433,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "12880",
+              "milliseconds": 1313,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "12880",
+              "milliseconds": 1268,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            },
+            {
+              "tableId": "09189",
+              "milliseconds": 1468,
+              "tokenUsage": {
+                "completionTokens": 0,
+                "promptTokens": 0,
+                "totalTokens": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
