@@ -1,1 +1,7 @@
-plotly
+plotly~=6.0.1
+pandas~=2.2.3
+altair~=5.5.0
+streamlit~=1.44.1
+numpy~=2.0.2
+networkx~=3.4.1
+setuptools~=68.2.2
