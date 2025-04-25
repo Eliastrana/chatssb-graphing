@@ -218,8 +218,8 @@ else:
 
     best = perf_filtered.iloc[0]
 
-    st.subheader("Den beste modellen er:")
-    st.header(f"**{best['model']}**")
+    # st.subheader("Den beste modellen er:")
+    # st.header(f"**{best['model']}**")
 
     st.table(
         perf_filtered[[
