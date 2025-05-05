@@ -3,32 +3,26 @@ import pandas as pd
 import json
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
 from matplotlib import pyplot as plt
 
 MODEL_NAME_MAP = {
     "gemini-2.0-flash": "Gemini Flash 2",
-    "gemini-2.0-flash-lite": "Gemini Flash 2 Lite",
     "gpt-4.1-2025-04-14": "GPT-4.1",
-    "gpt-4.1-mini-2025-04-14": "GPT-4.1 Mini",
-    "gpt-4.1-nano-2025-04-14": "GPT-4.1 Nano",
+    "o4-mini-2025-04-16": "GPT-o4-mini",
     "llama-3.3-70b-versatile": "Llama 3.3 70B",
     "meta-llama/llama-4-maverick-17b-128e-instruct": "Llama 4 Maverick",
-    "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout",
     "deepseek-r1-distill-llama-70b": "DeepSeek R1 70B",
+    "qwen-qwq-32b": "Qwen QWQ 32B",
 }
 
-# ---- Constants ----
-INITIAL_PRICES = {
-    "Gemini Flash 2": 0.17e-6,
-    "Gemini Flash 2 Lite": 0.13e-6,
-    "GPT-4.1": 0.7e-6,
-    "GPT-4.1 Mini": 0.7e-6,
-    "GPT-4.1 Nano": 0.17e-6,
-    "Llama 3.3 70B": 0.64e-6,
-    "Llama 4 Maverick": 0.3e-6,
-    "Llama 4 Scout": 0.17e-6,
-    "DeepSeek R1 70B": 0.81e-6,
+INPUT_PRICES = {
+    "Gemini Flash 2": 0.1e-6,
+    "GPT-4.1": 2.0e-6,
+    "GPT-o4-mini": 1.1e-6,
+    "Llama 3.3 70B": 0.59e-6,
+    "Llama 4 Maverick": 0.2e-6,
+    "DeepSeek R1 70B": 0.75e-6,
+    "Qwen QWQ 32B": 0.29e-6,
 }
 
 
@@ -42,7 +36,6 @@ color_map = {
     model: to_rgba_string(cmap(i)) for i, model in enumerate(MODEL_NAME_MAP.values())
 }
 
-
 # ---- Utility Functions ----
 def load_data(file_path):
     """Load JSON data from a file."""
@@ -54,22 +47,43 @@ def flatten_data(data):
     """Flatten nested JSON data into a DataFrame."""
     records = []
     for config in data['configurations']:
-        model_name = config['navigationConfiguration']['model']
-        tech = config['navigationConfiguration']['navigationTechnique']
-        nav_val = config['navigationConfiguration']['navigationValue']
+        model_name = config['selectionConfiguration']['model']
+        tech = config['selectionConfiguration']['selectionTechnique']
         for bm in config['benchmarkAnswers']:
             prompt_text = bm['userPrompt']
-            for resp in bm['responses']:
+            for response in bm['responses']:
+                selected_parameters = response.get('selectedParameters', {})
+                table_id = selected_parameters.get('tableId')
+                accuracies = []
+
+                correct_values_sum = extra_values_sum = missing_values_sum = 0
+
+                if table_id == 'error':
+                    accuracies.append(0)
+                else:
+                    for parameter in selected_parameters.get('parameters', {}).values():
+                        cv = parameter.get('correctValues', 0)
+                        ev = parameter.get('extraValues', 0)
+                        mv = parameter.get('missingValues', 0)
+                        correct_values_sum += cv
+                        extra_values_sum += ev
+                        missing_values_sum += mv
+                        accuracies.append(cv / (cv + ev + mv)) # accuracy per parameter
+
                 records.append({
                     'model': model_name,
-                    'navigationTechnique': tech,
-                    'navigationValue': nav_val,
+                    'selectionTechnique': tech,
                     'userPrompt': prompt_text,
-                    'result': resp.get('result'),
-                    'timeSeconds': resp.get('milliseconds') / 1000 if resp.get('milliseconds') is 
-                                                                     not None else None,
-                    'totalTokens': resp['tokenUsage'].get('totalTokens')
+                    'tableId': table_id,
+                    'correctValues': correct_values_sum,
+                    'extraValues': extra_values_sum,
+                    'missingValues': missing_values_sum,
+                    'accuracy': np.mean(accuracies) if accuracies else 0,
+                    'timeSeconds': response.get('milliseconds') / 1000 if response.get(
+                        'milliseconds') is not None else None,
+                    'promptTokens': response['tokenUsage'].get('promptTokens')
                 })
+                
     return pd.DataFrame(records)
 
 
@@ -78,14 +92,18 @@ def calculate_and_rank_models(df, price_per_token):
     # Calculate performance metrics
     model_performance = (
         df
-        .groupby(['model', 'navigationTechnique', 'navigationValue'], as_index=False)
+        .groupby(['model', 'selectionTechnique'], as_index=False)
         .agg(
-            avg_speed=('timeSeconds', lambda x: x[df['result'] != 'error'].mean()),
-            avg_accuracy=(
-            'result', lambda x: x.isin(['correct', 'technicallyCorrect']).mean() * 100),
-            avg_tokens=('totalTokens', lambda x: x[df['result'] != 'error'].mean())
+            avg_speed=('timeSeconds', lambda x: x[df['tableId'] != 'error'].mean()),
+            avg_accuracy=('accuracy', lambda x: x.mean()),
+            avg_tokens=('promptTokens', lambda x: x[df['tableId'] != 'error'].mean()),
+            correctValues=('correctValues', lambda x: x[df['tableId'] != 'error'].sum()),
+            extraValues=('extraValues', lambda x: x[df['tableId'] != 'error'].sum()),
+            missingValues=('missingValues', lambda x: x[df['tableId'] != 'error'].sum()),
+            errorRate=('tableId', lambda x: (x == 'error').sum() / len(x)),
         )
     )
+    
 
     model_performance['cost'] = model_performance.apply(
         lambda row: row['avg_tokens'] * price_per_token[row['model']],
@@ -117,29 +135,6 @@ def plot_3d_performance(model_perf):
     """Create a 3D plot of model performance."""
     fig = go.Figure()
 
-    # Add model performance points
-    fig.add_trace(go.Scatter3d(
-        x=model_perf['avg_speed'],
-        y=model_perf['cost'],
-        z=model_perf['avg_accuracy'],
-        mode='markers',
-        marker=dict(
-            size=6,
-            color=model_perf['model'].map(color_map),
-            symbol=model_perf['navigationTechnique'].apply(
-                lambda x: 'circle' if x == 'keywordSearch' else 'square'),
-        ),
-        hovertext=model_perf.apply(
-            lambda row: f"Model: {row['model']}<br>Technique: {row['navigationTechnique']}_"
-                        f"{row['navigationValue']}<br>"
-                        f"<br>Speed: {row['avg_speed']} s<br>Accuracy: "
-                        f"{row['avg_accuracy']}%<br>Cost: ${row['cost']:.6f}<br>Normalized Distance: "
-                        f"{row['distance']:.4f}",
-            axis=1
-        ),
-        hoverinfo="text"
-    ))
-
     # Beregn det optimale hjørnet
     opt_speed = model_perf['avg_speed'].min()
     opt_accuracy = model_perf['avg_accuracy'].max()
@@ -160,6 +155,28 @@ def plot_3d_performance(model_perf):
             name='Optimalt'
         )
     )
+    
+    # Add model performance points
+    fig.add_trace(go.Scatter3d(
+        x=model_perf['avg_speed'],
+        y=model_perf['cost'],
+        z=model_perf['avg_accuracy'],
+        mode='markers',
+        marker=dict(
+            size=6,
+            color=model_perf['model'].map(color_map),
+            symbol=model_perf['selectionTechnique'].apply(lambda x: 'circle' if x == 'redundant' else 'square' if x == 'enum' else 'cross'),
+        ),
+        hovertext=model_perf.apply(
+            lambda row: f"Model: {row['model']}<br>Technique: {row['selectionTechnique']}"
+                        f"<br>Speed: {row['avg_speed']} s<br>Accuracy: "
+                        f"{row['avg_accuracy']}%<br>Cost: ${row['cost']:.6f}<br>Normalized Distance: "
+                        f"{row['distance']:.4f}",
+            axis=1
+        ),
+        hoverinfo="text"
+    ))
+
 
     # Add layout details
     fig.update_layout(
@@ -185,13 +202,12 @@ def plot_2d_performance(model_perf):
         marker=dict(
             size=10,
             color=model_perf['model'].map(color_map),
-            symbol=model_perf['navigationTechnique'].apply(
-                lambda x: 'circle' if x == 'keywordSearch' else 'square'
+            symbol=model_perf['selectionTechnique'].apply(
+                lambda x: 'circle' if x == 'redundant' else 'square' if x == 'enum' else 'cross'
             ),
         ),
         hovertext=model_perf.apply(
-            lambda row: f"Model: {row['model']}<br>Technique: {row['navigationTechnique']}_"
-                        f"{row['navigationValue']}<br>"
+            lambda row: f"Model: {row['model']}<br>Technique: {row['selectionTechnique']}"
                         f"<br>Speed: {row['avg_speed']} s<br>Accuracy: "
                         f"{row['avg_accuracy']}%<br>Cost: ${row['cost']:.6f}<br>Normalized Distance: "
                         f"{row['distance']:.4f}",
@@ -225,134 +241,34 @@ def filter_models(model_perf, min_acc_pct, max_time):
 def show_dataframe(df):
     if df is None:
         st.warning("No models meet the criteria.")
-    else:
-        st.dataframe(
-            df[[
-                'model', 'navigationTechnique', 'navigationValue', 'avg_speed', 'avg_accuracy',
-                'cost', 'distance'
-            ]]
-            .assign(
-                avg_speed=lambda df: (df['avg_speed']).round(2),
-                avg_accuracy=lambda df: df['avg_accuracy'].round(1),
-                cost=lambda df: df['cost'].round(6),
-                distance=lambda df: df['distance'].round(4)
-            )
-            .rename(columns={
-                'avg_speed': 'Avg. Time (s)',
-                'avg_accuracy': 'Accuracy (%)',
-                'cost': 'Cost ($)',
-                'distance': 'Norm Distance'
-            })
-            .style.apply(
-                lambda x: ['background-color: {}'.format(color_map.get(x['model'], 'white')) for i in range(len(x))],
-                axis=1,
-            )
+        return
+
+    styled_df = (
+        df[['model', 'selectionTechnique', 'avg_speed', 'avg_accuracy', 'errorRate', 'cost', 
+            'distance']]
+        .assign(
+            avg_speed=lambda x: x['avg_speed'],
+            avg_accuracy=lambda x: x['avg_accuracy'] * 100,
+            cost=lambda x: x['cost'],
+            distance=lambda x: x['distance']
         )
-
-
-def plot_horizontal_barchart(df):
-    """Create a horizontal stacked bar chart of result proportions per model."""
-    # Define the categories in the order you want them to appear
-    result_categories = ['error', 'incorrect', 'technicallyCorrect', 'correct']
-
-    # 1) Count and 2) Pivot into a Model × Result table
-    counts = pd.crosstab(df['model'], df['result']).reindex(columns=result_categories, fill_value=0)
-
-    # 3) Normalize each row to sum to 1
-    proportions = counts.div(counts.sum(axis=1), axis=0)
-
-    colors = {
-        'correct': '#06bd36',
-        'technicallyCorrect': 'yellow',
-        'incorrect': 'red',
-        'error': 'purple'
-    }
-
-    # Build the stacked horizontal bars
-    fig = go.Figure()
-    models = proportions.index.tolist()
-
-    for category in result_categories:
-        fig.add_trace(go.Bar(
-            y=models,
-            x=proportions[category],
-            name=category.replace('technicallyCorrect', 'Technically Correct').capitalize(),
-            orientation='h',
-            marker=dict(
-                color=colors[category]
-            ),
-            hovertemplate='%{y}<br>' + category + ': %{x:.0%}<extra></extra>'
-        ))
-
-    fig.update_layout(
-        barmode='stack',
-        title="Result Distribution by Model, all techniques",
-        xaxis=dict(title="Proportion", tickformat=".0%"),
-        yaxis=dict(title="Model", automargin=True),
-        legend=dict(title="Outcome"),
-        margin=dict(l=120, r=20, t=50, b=50),
-        height=400 + 30*len(models)
+        .rename(columns={
+            'avg_speed': 'Avg. Time (s)',
+            'avg_accuracy': 'Accuracy (%)',
+            'cost': 'Cost ($)',
+            'distance': 'Norm Distance'
+        })
     )
 
-    return fig
+    st.dataframe(styled_df.style.apply(
+        lambda x: ['background-color: {}'.format(color_map.get(x['model'], 'white'))] * len(x),
+        axis=1
+    ))
 
-def plot_faceted_barcharts(df):
-    # 1) Define the order of result categories
-    result_categories = ['error', 'incorrect', 'technicallyCorrect', 'correct']
-
-    # 2) Count per (tech, value, model, result)
-    counts = (
-        df
-        .groupby(['navigationTechnique', 'navigationValue', 'model', 'result'])
-        .size()
-        .reset_index(name='count')
-    )
-    # 3) Compute proportions per model within each (tech, value)
-    counts['total'] = counts.groupby(
-        ['navigationTechnique', 'navigationValue', 'model']
-    )['count'].transform('sum')
-    counts['proportion'] = counts['count'] / counts['total']
-
-    # 4) Force categorical ordering
-    counts['result'] = pd.Categorical(
-        counts['result'],
-        categories=result_categories,
-        ordered=True
-    )
-
-    # 5) Color map for consistency with your existing plot
-    colors = {
-        'correct': '#06bd36',
-        'technicallyCorrect': 'yellow',
-        'incorrect': 'red',
-        'error': 'purple'
-    }
-
-    # 6) Build the faceted bar chart
-    fig = px.bar(
-        counts,
-        x='proportion',
-        y='model',
-        color='result',
-        orientation='h',
-        facet_row='navigationTechnique',
-        facet_col='navigationValue',
-        category_orders={'result': result_categories},
-        color_discrete_map=colors,
-        labels={'proportion': 'Proportion', 'model': 'Model', 'result': 'Outcome'},
-
-    )
-    fig.update_layout(
-        barmode='stack',
-        title='Result Distribution by Model for Each Navigation Technique × Value',
-        height=300 * len(counts['navigationTechnique'].unique()),
-        margin=dict(t=60, b=40, l=200, r=20),
-    )
-    
-    return fig
 
 
 def plot_speed_floating_bar(df):
+        
     # 1) Compute descriptive stats per model
     stats = (
         df
@@ -419,7 +335,7 @@ def plot_speed_floating_bar(df):
             showgrid=True,  # Enable gridlines for the x-axis
             gridcolor='gray',  # Optional: Set gridline color
             gridwidth=0.5,  # Optional: Set gridline width
-            nticks = 20,
+            nticks=20,
         ),
         yaxis=dict(
             title='Model',
@@ -432,16 +348,43 @@ def plot_speed_floating_bar(df):
         margin=dict(l=120, t=80, b=40),
         height=400 + 40 * len(stats),
     )
-    
+
     return fig
 
+def plot_horizontal_barchart(df):
+    """Create a horizontal stacked bar chart of result proportions per model."""
+    result_categories = ['missingValues', 'extraValues', 'correctValues']
+    colors = {'correctValues': '#06bd36', 'extraValues': 'yellow', 'missingValues': 'red'}
+    fig = go.Figure()
+
+    for category in result_categories:
+        proportion = df[category] / (df['correctValues'] + df['extraValues'] + df['missingValues'])
+        fig.add_trace(go.Bar(
+            y=df['model'],
+            x=proportion,
+            orientation='h',
+            marker=dict(color=colors[category]),
+            hovertemplate=f'%{{y}}<br>{category}: %{{x:.0%}}<extra></extra>'
+        ))
+
+    fig.update_layout(
+        barmode='stack',
+        title='Amount of Correct, Extra, and Missing Values per Model',
+        xaxis=dict(title="Number", tickformat=".0%"),
+        yaxis=dict(title="Model", automargin=True),
+        legend=dict(title="Outcome"),
+        margin=dict(l=120, r=20, t=50, b=50),
+        height=400 + 30*len(df['model'].unique()),
+    )
+
+    return fig
 
 # ---- Streamlit App ----
 def main():
     st.set_page_config(layout="wide", page_title="Benchmark Comparison")
 
     # Load data
-    data = load_data('navigationAnswers.json')
+    data = load_data('data/selectionAnswers.json')
     original_df = flatten_data(data)
     df = flatten_data(data)
 
@@ -457,21 +400,13 @@ def main():
     )
 
     # SIDEBAR CONFIGURATION
-    # Sidebar: Navigation Technique selection
-    all_techniques = list(dict.fromkeys(original_df['navigationTechnique'].unique()))
-    st.sidebar.header("Filter Navigation Techniques")
-    selected_techniques = st.sidebar.multiselect("Select navigation techniques to display:",
+    # Sidebar: selection Technique selection
+    all_techniques = list(dict.fromkeys(original_df['selectionTechnique'].unique()))
+    st.sidebar.header("Filter selection Techniques")
+    selected_techniques = st.sidebar.multiselect("Select selection techniques to display:",
                                                  options=all_techniques, default=all_techniques)
 
-    # Sidebar: Navigation Value selection
-    all_values = list(dict.fromkeys(original_df['navigationValue'].unique()))
-    st.sidebar.header("Filter Navigation Values")
-    selected_values = st.sidebar.multiselect("Select navigation values to display:",
-                                             options=all_values, default=all_values)
-    df = df[df['navigationValue'].isin(selected_values)]
-
-    # Filter DataFrame based on selected techniques
-    df = df[df['navigationTechnique'].isin(selected_techniques)]
+    df = df[df['selectionTechnique'].isin(selected_techniques)]
 
     # Sidebar: Model selection
     all_models = list(dict.fromkeys(original_df['model'].unique()))
@@ -493,7 +428,7 @@ def main():
         model: st.sidebar.number_input(
             f"Price per token for {model}",
             min_value=0.0,
-            value=INITIAL_PRICES.get(model, 0.001),
+            value=INPUT_PRICES.get(model, 0.001),
             format="%.8f"
         )
         for model in all_models
@@ -512,13 +447,11 @@ def main():
 
     # 2D Plot
     st.plotly_chart(plot_2d_performance(df), use_container_width=True)
-
-    # Bar chart of model accuracy aggregated by navigation technique
-    st.plotly_chart(plot_horizontal_barchart(original_df), use_container_width=True)
     
-    # Faceted bar charts of model accuracy aggregated by navigation technique and value
-    st.plotly_chart(plot_faceted_barcharts(original_df), use_container_width=True)
-
+    # Horizontal bar chart
+    print(df)
+    st.plotly_chart(plot_horizontal_barchart(df), use_container_width=True)
+    
     st.plotly_chart(
         plot_speed_floating_bar(original_df),
         use_container_width=True
