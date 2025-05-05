@@ -1,452 +1,529 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import json
 import numpy as np
 import plotly.graph_objects as go
-
-
-# Sett sidelayout til bred
-st.set_page_config(layout="wide", page_title="Benchmark-sammenligning")
-
-# Last inn benchmark‑data (lagre JSON‑filen som 'benchmark_data.json' i samme mappe)
-with open('benchmark_data.json', 'r') as f:
-    data = json.load(f)
-
-# Hent tilgjengelige modeller for valg
-all_models = [cfg['navigationConfiguration']['model'] for cfg in data['configurations']]
-# Fjern duplikater og behold rekkefølgen
-models = list(dict.fromkeys(all_models))
-
-# ---- Sidepanel: modellfilter ----
-st.sidebar.header("Filtrer modeller")
-selected_models = st.sidebar.multiselect(
-    "Velg språkmodeller som skal vises:",
-    options=models,
-    default=models
-)
-
-# Flate ut den nøstede strukturen til en DataFrame, inkludert modellnavn
-a = []
-for cfg in data['configurations']:
-    model_name = cfg['navigationConfiguration']['model']
-    tech = cfg['navigationConfiguration']['navigationTechnique']
-    nav_val = cfg['navigationConfiguration']['navigationValue']
-    for bm in cfg['benchmarkAnswers']:
-        prompt_text = bm['userPrompt']
-        for resp in bm['responses']:
-            a.append({
-                'model': model_name,
-                'navigationTechnique': tech,
-                'navigationValue': str(nav_val),
-                'userPrompt': prompt_text,
-                'result': resp.get('result'),
-                'milliseconds': resp.get('milliseconds'),
-                'totalTokens': resp['tokenUsage'].get('totalTokens')
-            })
-
-df = pd.DataFrame(a)
-
-# --- Filtrer bort feilresponser ---
-df_3d = df[df['result'] != 'error']
-
 import plotly.express as px
+from matplotlib import pyplot as plt
 
-# ---- Prissetting per token ----
-
-
-# ---- 3D‑plot av ytelse‑kostnad‑planet ----
-
-
-
-# ---- Sidepanel: brukerdefinerte filtre ----
-st.sidebar.header("Filterkriterier")
-min_acc_pct = st.sidebar.slider(
-    "Minimum nøyaktighet (%)", 0, 100, 70, step=1
-)
-max_time_sec = st.sidebar.slider(
-    "Maksimum gjennomsnittlig svartid (s)", 0, 60, 20, step=1
-)
-max_time_ms = max_time_sec * 1000  # konverter til ms
-
-# Valgfri sorteringsnøkkel
-sort_key = st.sidebar.selectbox(
-    "Sorter rangeringen etter",
-    ["distance", "avg_accuracy", "avg_speed_ms", "cost"],
-    index=0
-)
-
-# ---- Sidepanel: tokenpriser ----
-st.sidebar.header("Token‑prising")
-
-initial_prices = {
-    "gemini-2.0-flash": 0.17e-6,
-    "gemini-2.0-flash-lite": 0.13e-6,
-    "gpt-4.1-2025-04-14": 0.7e-6,
-    # "gpt-4.1-mini-2025-04-14": 0.02,
-    # "gpt-4.1-nano-2025-04-14": 0.02,
-    "llama-3.3-70b-versatile": 0.64e-6,
-    "meta-llama/llama-4-maverick-17b-128e-instruct": 0.3e-6,
-    "meta-llama/llama-4-scout-17b-16e-instruct": 0.17e-6,
-    "deepseek-r1-distill-llama-70b": 0.81e-6,
-
+MODEL_NAME_MAP = {
+    "gemini-2.0-flash": "Gemini Flash 2",
+    "gemini-2.0-flash-lite": "Gemini Flash 2 Lite",
+    "gpt-4.1-2025-04-14": "GPT-4.1",
+    "gpt-4.1-mini-2025-04-14": "GPT-4.1 Mini",
+    "gpt-4.1-nano-2025-04-14": "GPT-4.1 Nano",
+    "llama-3.3-70b-versatile": "Llama 3.3 70B",
+    "meta-llama/llama-4-maverick-17b-128e-instruct": "Llama 4 Maverick",
+    "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout",
+    "deepseek-r1-distill-llama-70b": "DeepSeek R1 70B",
 }
 
-price_per_token = {}
-for model in models:
-    price_per_token[model] = st.sidebar.number_input(
-        f"Pris per token for {model}",
-        min_value=0.0,
-        value=initial_prices.get(model, 0.001),
-        format="%.8f"
-    )
-# --- Beregn ytelse og kostnad pr modell ---
-model_perf = (
-    df_3d
-    .groupby('model', as_index=False)
-    .agg(
-        avg_speed_ms=('milliseconds', 'mean'),
-        avg_accuracy=('result', lambda x: x.isin(['correct', 'technicallyCorrect']).mean()*100),
-        avg_tokens=('totalTokens', 'mean')
-    )
-)
-# Legg til kostnadskolonne (tokens × pris)
-model_perf['cost'] = model_perf.apply(
-    lambda row: row['avg_tokens'] * price_per_token[row['model']],
-    axis=1
-)
+# ---- Constants ----
+INITIAL_PRICES = {
+    "Gemini Flash 2": 0.17e-6,
+    "Gemini Flash 2 Lite": 0.13e-6,
+    "GPT-4.1": 0.7e-6,
+    "GPT-4.1 Mini": 0.7e-6,
+    "GPT-4.1 Nano": 0.17e-6,
+    "Llama 3.3 70B": 0.64e-6,
+    "Llama 4 Maverick": 0.3e-6,
+    "Llama 4 Scout": 0.17e-6,
+    "DeepSeek R1 70B": 0.81e-6,
+}
 
-# 1) Estimer planet (kostnad = a*speed + b*accuracy + d)
-A = np.c_[
-    model_perf['avg_speed_ms'],
-    model_perf['avg_accuracy'],
-    np.ones(len(model_perf))
-]
-C, *_ = np.linalg.lstsq(A, model_perf['cost'], rcond=None)
-a, b, d = C
 
-# 2) Finmasket rutenett innenfor dataområdene
-speed_lin = np.linspace(model_perf['avg_speed_ms'].min(), model_perf['avg_speed_ms'].max(), 30)
-acc_lin = np.linspace(model_perf['avg_accuracy'].min(), model_perf['avg_accuracy'].max(), 30)
-S, A_ = np.meshgrid(speed_lin, acc_lin)
+def to_rgba_string(rgb_tuple):
+    r, g, b, a = rgb_tuple
+    return f'rgba({int(r * 255)}, {int(g * 255)}, {int(b * 255)}, {a})'
 
-# 3) Beregn planet Z og avgrens innenfor faktiske kostnadsgrenser
-Z_raw = a * S + b * A_ + d
-min_cost, max_cost = model_perf['cost'].min(), model_perf['cost'].max()
-Z = np.clip(Z_raw, min_cost, max_cost)
 
-# 4) Lag et 2D‑felt for grønn intensitet (hurtig, nøyaktig, billig → grønn)
-norm_s = 1 - (S - S.min()) / (S.max() - S.min())
-norm_a = (A_ - A_.min()) / (A_.max() - A_.min())
-norm_z = 1 - (Z - min_cost) / (max_cost - min_cost)
-green_intensity = norm_s * norm_a * norm_z
+cmap = plt.cm.get_cmap('tab10', len(MODEL_NAME_MAP))
+color_map = {
+    model: to_rgba_string(cmap(i)) for i, model in enumerate(MODEL_NAME_MAP.values())
+}
 
-# 5) Plot
-fig = go.Figure()
 
-fig.add_trace(go.Scatter3d(
-    x=model_perf['avg_speed_ms'],
-    y=model_perf['avg_accuracy'],
-    z=model_perf['cost'],
-    mode='markers+text',
-    marker=dict(size=6, color='navy'),
-    text=model_perf['model'],
-    textposition='top center'
-))
+# ---- Utility Functions ----
+def load_data(file_path):
+    """Load JSON data from a file."""
+    with open(file_path, 'r') as f:
+        return json.load(f)
 
-fig.update_layout(
-    scene=dict(
-        xaxis_title='Gj.sn. hastighet (ms)',
-        yaxis_title='Nøyaktighet (%)',
-        zaxis=dict(
-            title='Kostnad',
-            autorange='reversed'
+
+def flatten_data(data):
+    """Flatten nested JSON data into a DataFrame."""
+    records = []
+    for config in data['configurations']:
+        model_name = config['navigationConfiguration']['model']
+        tech = config['navigationConfiguration']['navigationTechnique']
+        nav_val = config['navigationConfiguration']['navigationValue']
+        for bm in config['benchmarkAnswers']:
+            prompt_text = bm['userPrompt']
+            for resp in bm['responses']:
+                records.append({
+                    'model': model_name,
+                    'navigationTechnique': tech,
+                    'navigationValue': nav_val,
+                    'userPrompt': prompt_text,
+                    'result': resp.get('result'),
+                    'timeSeconds': resp.get('milliseconds') / 1000 if resp.get('milliseconds') is 
+                                                                     not None else None,
+                    'totalTokens': resp['tokenUsage'].get('totalTokens')
+                })
+    return pd.DataFrame(records)
+
+
+def calculate_and_rank_models(df, price_per_token):
+    """Calculate performance metrics and rank models."""
+    # Calculate performance metrics
+    model_performance = (
+        df
+        .groupby(['model', 'navigationTechnique', 'navigationValue'], as_index=False)
+        .agg(
+            avg_speed=('timeSeconds', lambda x: x[df['result'] != 'error'].mean()),
+            avg_accuracy=(
+            'result', lambda x: x.isin(['correct', 'technicallyCorrect']).mean() * 100),
+            avg_tokens=('totalTokens', lambda x: x[df['result'] != 'error'].mean())
         )
-    ),
-    margin=dict(l=0, r=0, b=0, t=30)
-)
+    )
 
-# Beregn det optimale hjørnet
-opt_speed = model_perf['avg_speed_ms'].min()
-opt_accuracy = model_perf['avg_accuracy'].max()
-opt_cost = model_perf['cost'].min()
+    model_performance['cost'] = model_performance.apply(
+        lambda row: row['avg_tokens'] * price_per_token[row['model']],
+        axis=1
+    )
 
-# Legg til punktet for optimal balanse
-fig.add_trace(
-    go.Scatter3d(
-        x=[opt_speed],
-        y=[opt_accuracy],
-        z=[opt_cost],
+    if model_performance.empty:
+        return None
+
+    # Normalize and calculate distance
+    s_min, s_max = model_performance['avg_speed'].min(), model_performance['avg_speed'].max()
+    a_min, a_max = model_performance['avg_accuracy'].min(), model_performance['avg_accuracy'].max()
+    c_min, c_max = model_performance['cost'].min(), model_performance['cost'].max()
+
+    model_performance['speed_n'] = (s_max - model_performance['avg_speed']) / (s_max - s_min)
+    model_performance['accuracy_n'] = (model_performance['avg_accuracy'] - a_min) / (a_max - a_min)
+    model_performance['cost_n'] = (c_max - model_performance['cost']) / (c_max - c_min)
+
+    model_performance['distance'] = np.sqrt(
+        (1 - model_performance['speed_n']) ** 2 +
+        (1 - model_performance['accuracy_n']) ** 2 +
+        (1 - model_performance['cost_n']) ** 2
+    ) / 3
+
+    return model_performance
+
+
+def plot_3d_performance(model_perf):
+    """Create a 3D plot of model performance."""
+    fig = go.Figure()
+
+    # Add model performance points
+    fig.add_trace(go.Scatter3d(
+        x=model_perf['avg_speed'],
+        y=model_perf['cost'],
+        z=model_perf['avg_accuracy'],
         mode='markers',
         marker=dict(
-            size=12,
-            color='red',
-            symbol='diamond'
+            size=6,
+            color=model_perf['model'].map(color_map),
+            symbol=model_perf['navigationTechnique'].apply(
+                lambda x: 'circle' if x == 'keywordSearch' else 'square'),
         ),
-        name='Optimalt'
-    )
-)
+        hovertext=model_perf.apply(
+            lambda row: f"Model: {row['model']}<br>Technique: {row['navigationTechnique']}_"
+                        f"{row['navigationValue']}<br>"
+                        f"<br>Speed: {row['avg_speed']} s<br>Accuracy: "
+                        f"{row['avg_accuracy']}%<br>Cost: ${row['cost']:.6f}<br>Normalized Distance: "
+                        f"{row['distance']:.4f}",
+            axis=1
+        ),
+        hoverinfo="text"
+    ))
 
-st.plotly_chart(fig, use_container_width=True)
+    # Beregn det optimale hjørnet
+    opt_speed = model_perf['avg_speed'].min()
+    opt_accuracy = model_perf['avg_accuracy'].max()
+    opt_cost = model_perf['cost'].min()
 
-# ---- Filtrer modellprestasjon etter brukerkrav ----
-perf_filtered = model_perf[
-    (model_perf['avg_accuracy'] >= min_acc_pct) &
-    (model_perf['avg_speed_ms'] <= max_time_ms)
-].copy()
-
-if perf_filtered.empty:
-    st.warning("Ingen modeller oppfyller kriteriene.")
-else:
-    # Normaliser og beregn avstand
-    s_min, s_max = perf_filtered['avg_speed_ms'].min(), perf_filtered['avg_speed_ms'].max()
-    a_min, a_max = perf_filtered['avg_accuracy'].min(), perf_filtered['avg_accuracy'].max()
-    c_min, c_max = perf_filtered['cost'].min(), perf_filtered['cost'].max()
-
-    perf_filtered['speed_n'] = (s_max - perf_filtered['avg_speed_ms']) / (s_max - s_min)
-    perf_filtered['accuracy_n'] = (perf_filtered['avg_accuracy'] - a_min) / (a_max - a_min)
-    perf_filtered['cost_n'] = (c_max - perf_filtered['cost']) / (c_max - c_min)
-
-    perf_filtered['distance'] = np.sqrt(
-        (1 - perf_filtered['speed_n'])**2 +
-        (1 - perf_filtered['accuracy_n'])**2 +
-        (1 - perf_filtered['cost_n'])**2
-    )
-
-    # Sorter etter valgt nøkkel
-    perf_filtered = perf_filtered.sort_values(sort_key)
-
-    best = perf_filtered.iloc[0]
-
-    # st.subheader("Den beste modellen er:")
-    # st.header(f"**{best['model']}**")
-
-    st.table(
-        perf_filtered[[
-            'model', 'avg_speed_ms', 'avg_accuracy', 'cost', 'distance'
-        ]]
-        .assign(
-            avg_speed_ms=lambda df: (df['avg_speed_ms']/1000).round(2).astype(str)+" s",
-            avg_accuracy=lambda df: df['avg_accuracy'].round(1).astype(str)+" %",
-            cost=lambda df: df['cost'].round(6),
-            distance=lambda df: df['distance'].round(4)
+    # Legg til punktet for optimal balanse
+    fig.add_trace(
+        go.Scatter3d(
+            x=[opt_speed],
+            y=[opt_cost],
+            z=[opt_accuracy],
+            mode='markers',
+            marker=dict(
+                size=8,
+                color='green',
+                symbol='diamond'
+            ),
+            name='Optimalt'
         )
-        .rename(columns={
-            'avg_speed_ms': 'Gj.sn. tid',
-            'avg_accuracy': 'Nøyaktighet',
-            'cost': 'Kostnad',
-        })
+    )
+
+    # Add layout details
+    fig.update_layout(
+        scene=dict(
+            xaxis_title='Avg. Speed (s)',
+            yaxis_title='Cost ($)',
+            zaxis_title='Accuracy (%)'
+        )
+    )
+
+    return fig
+
+
+def plot_2d_performance(model_perf):
+    """Create a 2D plot of model performance."""
+    fig = go.Figure()
+
+    # Add model performance points
+    fig.add_trace(go.Scatter(
+        x=model_perf['avg_speed'],
+        y=model_perf['avg_accuracy'],
+        mode='markers',
+        marker=dict(
+            size=10,
+            color=model_perf['model'].map(color_map),
+            symbol=model_perf['navigationTechnique'].apply(
+                lambda x: 'circle' if x == 'keywordSearch' else 'square'
+            ),
+        ),
+        hovertext=model_perf.apply(
+            lambda row: f"Model: {row['model']}<br>Technique: {row['navigationTechnique']}_"
+                        f"{row['navigationValue']}<br>"
+                        f"<br>Speed: {row['avg_speed']} s<br>Accuracy: "
+                        f"{row['avg_accuracy']}%<br>Cost: ${row['cost']:.6f}<br>Normalized Distance: "
+                        f"{row['distance']:.4f}",
+            axis=1
+        ),
+        hoverinfo="text"
+    ))
+
+    fig.update_layout(
+        xaxis=dict(
+            title='Avg. Speed (s)',
+            showgrid=True
+        ),
+        yaxis=dict(
+            title='Accuracy (%)',
+            showgrid=True
+        ),
+        margin=dict(l=0, r=0, b=0, t=30)
+    )
+    return fig
+
+
+def filter_models(model_perf, min_acc_pct, max_time):
+    """Filter models based on user-defined criteria."""
+    return model_perf[
+        (model_perf['avg_accuracy'] >= min_acc_pct) &
+        (model_perf['avg_speed'] <= max_time)
+        ].copy()
+
+
+def show_dataframe(df):
+    if df is None:
+        st.warning("No models meet the criteria.")
+    else:
+        st.dataframe(
+            df[[
+                'model', 'navigationTechnique', 'navigationValue', 'avg_speed', 'avg_accuracy',
+                'cost', 'distance'
+            ]]
+            .assign(
+                avg_speed=lambda df: (df['avg_speed']).round(2),
+                avg_accuracy=lambda df: df['avg_accuracy'].round(1),
+                cost=lambda df: df['cost'].round(6),
+                distance=lambda df: df['distance'].round(4)
+            )
+            .rename(columns={
+                'avg_speed': 'Avg. Time (s)',
+                'avg_accuracy': 'Accuracy (%)',
+                'cost': 'Cost ($)',
+                'distance': 'Norm Distance'
+            })
+            .style.apply(
+                lambda x: ['background-color: {}'.format(color_map.get(x['model'], 'white')) for i in range(len(x))],
+                axis=1,
+            )
+        )
+
+
+def plot_horizontal_barchart(df):
+    """Create a horizontal stacked bar chart of result proportions per model."""
+    # Define the categories in the order you want them to appear
+    result_categories = ['error', 'incorrect', 'technicallyCorrect', 'correct']
+
+    # 1) Count and 2) Pivot into a Model × Result table
+    counts = pd.crosstab(df['model'], df['result']).reindex(columns=result_categories, fill_value=0)
+
+    # 3) Normalize each row to sum to 1
+    proportions = counts.div(counts.sum(axis=1), axis=0)
+
+    colors = {
+        'correct': '#06bd36',
+        'technicallyCorrect': 'yellow',
+        'incorrect': 'red',
+        'error': 'purple'
+    }
+
+    # Build the stacked horizontal bars
+    fig = go.Figure()
+    models = proportions.index.tolist()
+
+    for category in result_categories:
+        fig.add_trace(go.Bar(
+            y=models,
+            x=proportions[category],
+            name=category.replace('technicallyCorrect', 'Technically Correct').capitalize(),
+            orientation='h',
+            marker=dict(
+                color=colors[category]
+            ),
+            hovertemplate='%{y}<br>' + category + ': %{x:.0%}<extra></extra>'
+        ))
+
+    fig.update_layout(
+        barmode='stack',
+        title="Result Distribution by Model, all techniques",
+        xaxis=dict(title="Proportion", tickformat=".0%"),
+        yaxis=dict(title="Model", automargin=True),
+        legend=dict(title="Outcome"),
+        margin=dict(l=120, r=20, t=50, b=50),
+        height=400 + 30*len(models)
+    )
+
+    return fig
+
+def plot_faceted_barcharts(df):
+    # 1) Define the order of result categories
+    result_categories = ['error', 'incorrect', 'technicallyCorrect', 'correct']
+
+    # 2) Count per (tech, value, model, result)
+    counts = (
+        df
+        .groupby(['navigationTechnique', 'navigationValue', 'model', 'result'])
+        .size()
+        .reset_index(name='count')
+    )
+    # 3) Compute proportions per model within each (tech, value)
+    counts['total'] = counts.groupby(
+        ['navigationTechnique', 'navigationValue', 'model']
+    )['count'].transform('sum')
+    counts['proportion'] = counts['count'] / counts['total']
+
+    # 4) Force categorical ordering
+    counts['result'] = pd.Categorical(
+        counts['result'],
+        categories=result_categories,
+        ordered=True
+    )
+
+    # 5) Color map for consistency with your existing plot
+    colors = {
+        'correct': '#06bd36',
+        'technicallyCorrect': 'yellow',
+        'incorrect': 'red',
+        'error': 'purple'
+    }
+
+    # 6) Build the faceted bar chart
+    fig = px.bar(
+        counts,
+        x='proportion',
+        y='model',
+        color='result',
+        orientation='h',
+        facet_row='navigationTechnique',
+        facet_col='navigationValue',
+        category_orders={'result': result_categories},
+        color_discrete_map=colors,
+        labels={'proportion': 'Proportion', 'model': 'Model', 'result': 'Outcome'},
+
+    )
+    fig.update_layout(
+        barmode='stack',
+        title='Result Distribution by Model for Each Navigation Technique × Value',
+        height=300 * len(counts['navigationTechnique'].unique()),
+        margin=dict(t=60, b=40, l=200, r=20),
+    )
+    
+    return fig
+
+
+def plot_speed_floating_bar(df):
+    # 1) Compute descriptive stats per model
+    stats = (
+        df
+        .groupby('model')['timeSeconds']
+        .agg(
+            p10=lambda x: np.percentile(x, 10),
+            p25=lambda x: np.percentile(x, 25),
+            median=lambda x: np.percentile(x, 50),
+            p75=lambda x: np.percentile(x, 75),
+            p90=lambda x: np.percentile(x, 90),
+            mean='mean'
+        )
+        .reset_index()
+    )
+
+    # 2) Build the floating bars
+    fig = go.Figure()
+    # – 10–90 percentile range
+    fig.add_trace(go.Bar(
+        y=stats['model'],
+        x=stats['p90'] - stats['p10'],
+        base=stats['p10'],
+        orientation='h',
+        name='10th–90th pctile',
+        marker=dict(color='lightsteelblue'),
+        hovertemplate='10th–90th pctile: %{x:.2f}<extra></extra>'
+    ))
+    # – 25–75 percentile range
+    fig.add_trace(go.Bar(
+        y=stats['model'],
+        x=stats['p75'] - stats['p25'],
+        base=stats['p25'],
+        orientation='h',
+        name='25th–75th pctile',
+        marker=dict(color='steelblue'),
+        hovertemplate='25th–75th pctile: %{x:.2f}<extra></extra>'
+    ))
+    # – Median marker
+    fig.add_trace(go.Scatter(
+        y=stats['model'],
+        x=stats['median'],
+        mode='markers',
+        name='Median',
+        marker_symbol='line-ns-open',
+        marker=dict(color='black', size=12),
+        hovertemplate='Median: %{x:.2f}<extra></extra>'
+    ))
+    # – Mean marker
+    fig.add_trace(go.Scatter(
+        y=stats['model'],
+        x=stats['mean'],
+        mode='markers',
+        name='Mean',
+        marker_symbol='circle-open-dot',
+        marker=dict(color='firebrick', size=8),
+        hovertemplate='Mean: %{x:.2f}<extra></extra>'
+    ))
+
+    # 3) Layout tweaks
+    fig.update_layout(
+        title='Speed Distribution by Model\n(Percentiles with Mean & Median)',
+        xaxis=dict(
+            title='time (s)',
+            showgrid=True,  # Enable gridlines for the x-axis
+            gridcolor='gray',  # Optional: Set gridline color
+            gridwidth=0.5,  # Optional: Set gridline width
+            nticks = 20,
+        ),
+        yaxis=dict(
+            title='Model',
+            showgrid=True,  # Enable gridlines for the y-axis
+            gridcolor='gray',  # Optional: Set gridline color
+            gridwidth=0.5  # Optional: Set gridline width
+        ),
+        barmode='overlay',
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+        margin=dict(l=120, t=80, b=40),
+        height=400 + 40 * len(stats),
+    )
+    
+    return fig
+
+
+# ---- Streamlit App ----
+def main():
+    st.set_page_config(layout="wide", page_title="Benchmark Comparison")
+
+    # Load data
+    data = load_data('navigationAnswers.json')
+    original_df = flatten_data(data)
+    df = flatten_data(data)
+
+    # Update model names
+    original_df['model'] = original_df['model'].replace(MODEL_NAME_MAP)
+    df['model'] = df['model'].replace(MODEL_NAME_MAP)
+
+    original_df = original_df.assign(
+        color=original_df['model'].map(color_map)
+    )
+    df = df.assign(
+        color=df['model'].map(color_map)
+    )
+
+    # SIDEBAR CONFIGURATION
+    # Sidebar: Navigation Technique selection
+    all_techniques = list(dict.fromkeys(original_df['navigationTechnique'].unique()))
+    st.sidebar.header("Filter Navigation Techniques")
+    selected_techniques = st.sidebar.multiselect("Select navigation techniques to display:",
+                                                 options=all_techniques, default=all_techniques)
+
+    # Sidebar: Navigation Value selection
+    all_values = list(dict.fromkeys(original_df['navigationValue'].unique()))
+    st.sidebar.header("Filter Navigation Values")
+    selected_values = st.sidebar.multiselect("Select navigation values to display:",
+                                             options=all_values, default=all_values)
+    df = df[df['navigationValue'].isin(selected_values)]
+
+    # Filter DataFrame based on selected techniques
+    df = df[df['navigationTechnique'].isin(selected_techniques)]
+
+    # Sidebar: Model selection
+    all_models = list(dict.fromkeys(original_df['model'].unique()))
+    st.sidebar.header("Filter Models")
+    selected_models = st.sidebar.multiselect("Select models to display:", options=all_models,
+                                             default=all_models)
+
+    # Filter DataFrame based on selected models
+    df = df[df['model'].isin(selected_models)]
+
+    # Sidebar: User-defined filters
+    st.sidebar.header("Filter Criteria")
+    min_acc_pct = st.sidebar.slider("Minimum Accuracy (%)", 0, 100, 0, step=1)
+    max_time_sec = st.sidebar.slider("Maximum Avg. Response Time (s)", 0, 60, 60, step=1)
+
+    # Sidebar: Token pricing
+    st.sidebar.header("Token Pricing")
+    price_per_token = {
+        model: st.sidebar.number_input(
+            f"Price per token for {model}",
+            min_value=0.0,
+            value=INITIAL_PRICES.get(model, 0.001),
+            format="%.8f"
+        )
+        for model in all_models
+    }
+
+    # Calculate performance
+    df = calculate_and_rank_models(df, price_per_token)
+
+    # Filter models based on user-defined criteria
+    df = filter_models(df, min_acc_pct, max_time_sec)
+
+    # 3D Plot
+    st.plotly_chart(plot_3d_performance(df), use_container_width=True)
+
+    show_dataframe(df)
+
+    # 2D Plot
+    st.plotly_chart(plot_2d_performance(df), use_container_width=True)
+
+    # Bar chart of model accuracy aggregated by navigation technique
+    st.plotly_chart(plot_horizontal_barchart(original_df), use_container_width=True)
+    
+    # Faceted bar charts of model accuracy aggregated by navigation technique and value
+    st.plotly_chart(plot_faceted_barcharts(original_df), use_container_width=True)
+
+    st.plotly_chart(
+        plot_speed_floating_bar(original_df),
+        use_container_width=True
     )
 
 
-# ---- Ønsket plan: hastighet vs nøyaktighet pr modell ----
-model_perf = (
-    df
-    .groupby('model', as_index=False)
-    .agg(
-        avg_speed_ms=('milliseconds', 'mean'),
-        avg_accuracy=('result', lambda x: x.isin(['correct','technicallyCorrect']).mean()*100)
-    )
-)
-
-st.header("Modellprestasjon: Hastighet vs Nøyaktighet")
-
-points = alt.Chart(model_perf).mark_circle(size=100).encode(
-    x=alt.X('avg_speed_ms:Q', title='Gj.sn. hastighet (ms)'),
-    y=alt.Y('avg_accuracy:Q', title='Nøyaktighet (%)'),
-    color=alt.Color('model:N', legend=None),
-    tooltip=['model','avg_speed_ms','avg_accuracy']
-)
-
-labels = alt.Chart(model_perf).mark_text(dx=7, dy=-7).encode(
-    x='avg_speed_ms:Q',
-    y='avg_accuracy:Q',
-    text='model:N',
-    color=alt.Color('model:N', legend=None)
-)
-
-plane = (points + labels).properties(
-    width=700,
-    height=500
-)
-
-st.altair_chart(plane, use_container_width=True)
-
-# ---- Aggregert statistikk pr navigeringstype ----
-agg_overall = df.groupby('navigationTechnique', as_index=False).agg(
-    avg_speed_ms=('milliseconds', 'mean'),
-    avg_tokens=('totalTokens', 'mean'),
-    avg_accuracy=('result', lambda x: x.isin(['correct', 'technicallyCorrect']).mean() * 100)
-)
-
-st.title("ChatSSB – Ytelse")
-st.header("Generell oversikt over navigeringstype")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader("Gjennomsnittlig hastighet (ms)")
-    chart_speed = alt.Chart(agg_overall).mark_bar().encode(
-        x=alt.X('navigationTechnique:N', title='Teknikk'),
-        y=alt.Y('avg_speed_ms:Q', title='Hastighet (ms)'),
-        color=alt.Color('navigationTechnique:N', legend=None),
-        tooltip=['navigationTechnique', 'avg_speed_ms']
-    ).properties(height=300)
-    st.altair_chart(chart_speed, use_container_width=True)
-
-with col2:
-    st.subheader("Gjennomsnittlig tokenforbruk")
-    chart_tokens = alt.Chart(agg_overall).mark_bar().encode(
-        x=alt.X('navigationTechnique:N', title='Teknikk'),
-        y=alt.Y('avg_tokens:Q', title='Totalt antall tokens'),
-        color=alt.Color('navigationTechnique:N', legend=None),
-        tooltip=['navigationTechnique', 'avg_tokens']
-    ).properties(height=300)
-    st.altair_chart(chart_tokens, use_container_width=True)
-
-with col3:
-    st.subheader("Gjennomsnittlig nøyaktighet (%)")
-    chart_accuracy = alt.Chart(agg_overall).mark_bar().encode(
-        x=alt.X('navigationTechnique:N', title='Teknikk'),
-        y=alt.Y('avg_accuracy:Q', title='Nøyaktighet (%)'),
-        color=alt.Color('navigationTechnique:N', legend=None),
-        tooltip=['navigationTechnique', alt.Tooltip('avg_accuracy:Q', format='.1f')]
-    ).properties(height=300)
-    st.altair_chart(chart_accuracy, use_container_width=True)
-
-st.markdown("---")
-
-# ---- Aggregert pr konfigurasjon ----
-agg_config = (
-    df
-    .groupby(['model', 'navigationTechnique', 'navigationValue'], as_index=False)
-    .agg(
-        total_speed_ms=('milliseconds', 'sum'),
-        total_tokens=('totalTokens', 'sum'),
-        accuracy=('result', lambda x: x.isin(['correct', 'technicallyCorrect']).mean() * 100)
-    )
-)
-agg_config['config'] = (
-    agg_config['model'] + ' | ' + agg_config['navigationTechnique'] + ' (' + agg_config['navigationValue'] + ')'
-)
-
-st.header("Aggregert per konfigurasjon")
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.subheader("Total hastighet (ms)")
-    chart1 = alt.Chart(agg_config).mark_bar().encode(
-        x=alt.X('config:N', title='Konfigurasjon', axis=alt.Axis(labelAngle=-90, labelAlign='right', labelLimit=500)),
-        y=alt.Y('total_speed_ms:Q', title='Total hastighet (ms)'),
-        color=alt.Color('model:N', legend=None),
-        tooltip=['config', 'total_speed_ms']
-    ).properties(height=550)
-    st.altair_chart(chart1, use_container_width=True)
-
-with col2:
-    st.subheader("Totalt antall tokens")
-    chart2 = alt.Chart(agg_config).mark_bar().encode(
-        x=alt.X('config:N', title='Konfigurasjon', axis=alt.Axis(labelAngle=-90, labelAlign='right', labelLimit=500)),
-        y=alt.Y('total_tokens:Q', title='Totalt antall tokens'),
-        color=alt.Color('model:N', legend=None),
-        tooltip=['config', 'total_tokens']
-    ).properties(height=550)
-    st.altair_chart(chart2, use_container_width=True)
-
-with col3:
-    st.subheader("Nøyaktighet (%)")
-    chart3 = alt.Chart(agg_config).mark_bar().encode(
-        x=alt.X('config:N', title='Konfigurasjon', axis=alt.Axis(labelAngle=-90, labelAlign='right', labelLimit=500)),
-        y=alt.Y('accuracy:Q', title='Nøyaktighet (%)'),
-        color=alt.Color('model:N', legend=None),
-        tooltip=['config', alt.Tooltip('accuracy:Q', format='.1f')]
-    ).properties(height=550)
-    st.altair_chart(chart3, use_container_width=True)
-
-# ---- GRAF PER PROMPT OG MODELL ----
-prompts = df['userPrompt'].unique()
-blue_shades = ['#c6dbef', '#6baed6', '#2171b5']
-domain_values = ['1', '3', '5']
-
-for prompt in prompts:
-    st.header(f" Spørsmål: {prompt}")
-    sub_df = df[df['userPrompt'] == prompt]
-
-    for m in selected_models:
-        m_df = sub_df[sub_df['model'] == m]
-        if m_df.empty:
-            continue
-
-        st.subheader(f"{m}")
-
-        # Hastighetsdiagram
-        speed_chart = alt.Chart(m_df).mark_bar().encode(
-            x=alt.X('milliseconds:Q', title='Hastighet (ms)'),
-            y=alt.Y('navigationTechnique:N', title='Teknikk'),
-            stroke=alt.Stroke('result:N', scale=alt.Scale(domain=['correct', 'technicallyCorrect', 'incorrect', 'error'], range=['#06bd36', 'yellow', 'red', 'purple'])),
-            strokeWidth=alt.value(4),
-            color=alt.Color('navigationValue:N', title='Nav‑verdi', scale=alt.Scale(domain=domain_values, range=blue_shades)),
-            tooltip=['navigationTechnique', 'navigationValue', 'result', 'milliseconds', 'totalTokens']
-        ).properties(width=800, height=200)
-        st.altair_chart(speed_chart, use_container_width=True)
-
-        # Tokenforbruksdiagram
-        token_chart = alt.Chart(m_df).mark_bar().encode(
-            x=alt.X('totalTokens:Q', title='Totalt antall tokens'),
-            y=alt.Y('navigationTechnique:N', title='Teknikk'),
-            stroke=alt.Stroke('result:N', scale=alt.Scale(domain=['correct', 'technicallyCorrect', 'incorrect', 'error'], range=['#06bd36', 'yellow', 'red', 'purple'])),
-            strokeWidth=alt.value(4),
-            color=alt.Color('navigationValue:N', title='Nav‑verdi', scale=alt.Scale(domain=domain_values, range=blue_shades)),
-            tooltip=['navigationTechnique', 'navigationValue', 'result', 'totalTokens']
-        ).properties(width=800, height=200)
-        st.altair_chart(token_chart, use_container_width=True)
-
-        # Detaljerte responser
-        with st.expander(f"{m} svar"):
-            st.write(m_df[['navigationTechnique', 'navigationValue', 'result', 'milliseconds', 'totalTokens']])
-
-    st.markdown("---")
-
-# ---- KONFIGURASJON-FØRST: per spørsmål‑grafer ----
-agg_q = (
-    df
-    .groupby(['model', 'navigationTechnique', 'navigationValue', 'userPrompt'], as_index=False)
-    .agg(
-        avg_speed_ms=('milliseconds', 'mean'),
-        avg_tokens=('totalTokens', 'mean'),
-        avg_accuracy=('result', lambda x: x.isin(['correct','technicallyCorrect']).mean()*100)
-    )
-)
-
-st.header("Ytelse per spørsmål per konfigurasjon")
-for _, cfg in agg_config.iterrows():
-    model = cfg['model']
-    tech = cfg['navigationTechnique']
-    nav = cfg['navigationValue']
-    title = f"{model} | {tech} ({nav})"
-    st.subheader(title)
-
-    sub = agg_q[(agg_q['model'] == model) & (agg_q['navigationTechnique'] == tech) & (agg_q['navigationValue'] == nav)]
-
-    # Hastighet
-    speed_chart = (
-        alt.Chart(sub).mark_bar().encode(
-            x=alt.X('avg_speed_ms:Q', title='Gj.sn. hastighet (ms)'),
-            y=alt.Y('userPrompt:N', title='Spørsmål', sort='-x'),
-            color=alt.value('#6baed6'),
-            tooltip=['userPrompt', alt.Tooltip('avg_speed_ms:Q', format='.1f')]
-        ).properties(height=300)
-    )
-    st.altair_chart(speed_chart, use_container_width=True)
-
-    # Tokenforbruk
-    token_chart = (
-        alt.Chart(sub).mark_bar().encode(
-            x=alt.X('avg_tokens:Q', title='Gj.sn. tokens'),
-            y=alt.Y('userPrompt:N', title='Spørsmål', sort='-x'),
-            color=alt.value('#2171b5'),
-            tooltip=['userPrompt', alt.Tooltip('avg_tokens:Q', format='.1f')]
-        ).properties(height=300)
-    )
-    st.altair_chart(token_chart, use_container_width=True)
-
-    st.markdown("---")
+if __name__ == "__main__":
+    main()
