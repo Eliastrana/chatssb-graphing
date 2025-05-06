@@ -297,7 +297,60 @@ def plot_horizontal_barchart(df):
     return fig
 
 
+def plot_faceted_barcharts(df):
+    # 1) Define the order of result categories
+    result_categories = ['error', 'incorrect', 'technicallyCorrect', 'correct']
 
+    # 2) Count per (tech, value, model, result)
+    counts = (
+        df
+        .groupby(['navigationTechnique', 'navigationValue', 'model', 'result'])
+        .size()
+        .reset_index(name='count')
+    )
+    # 3) Compute proportions per model within each (tech, value)
+    counts['total'] = counts.groupby(
+        ['navigationTechnique', 'navigationValue', 'model']
+    )['count'].transform('sum')
+    counts['proportion'] = counts['count'] / counts['total']
+
+    # 4) Force categorical ordering
+    counts['result'] = pd.Categorical(
+        counts['result'],
+        categories=result_categories,
+        ordered=True
+    )
+
+    # 5) Color map for consistency with your existing plot
+    colors = {
+        'correct': '#06bd36',
+        'technicallyCorrect': 'yellow',
+        'incorrect': 'red',
+        'error': 'purple'
+    }
+
+    # 6) Build the faceted bar chart
+    fig = px.bar(
+        counts,
+        x='proportion',
+        y='model',
+        color='result',
+        orientation='h',
+        facet_row='navigationTechnique',
+        facet_col='navigationValue',
+        category_orders={'result': result_categories},
+        color_discrete_map=colors,
+        labels={'proportion': 'Proportion', 'model': 'Model', 'result': 'Outcome'},
+
+    )
+    fig.update_layout(
+        barmode='stack',
+        title='Result Distribution by Model for Each Navigation Technique × Value',
+        height=300 * len(counts['navigationTechnique'].unique()),
+        margin=dict(t=60, b=40, l=200, r=20),
+    )
+
+    return fig
 
 def plot_speed_floating_bar(df):
     # 1) Compute descriptive stats per model
